@@ -1,0 +1,104 @@
+version: "3.8"
+
+networks:
+  microservices-network:
+    driver: bridge
+
+services:
+  # ======================
+  # Eureka Server
+  # ======================
+  eurekaserver:
+    container_name: eurekaserver
+    build:
+      context: ./EurekaServer
+    image: eurekaserver:1.0
+    ports:
+      - "8761:8761"
+    networks:
+      - microservices-network
+
+  # ======================
+  # API Gateway
+  # ======================
+  gateway:
+    container_name: gateway
+    build:
+      context: ./GatewayApi
+    image: gateway:1.0
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eurekaserver
+    networks:
+      - microservices-network
+
+  # ======================
+  # Book Service
+  # ======================
+  bookservice:
+    container_name: bookservice
+    build:
+      context: ./BookService
+    image: bookservice:1.0
+    ports:
+      - "8081:8081"
+    depends_on:
+      - eurekaserver
+      - kafka
+    networks:
+      - microservices-network
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  # ======================
+  # User Service
+  # ======================
+  userservice:
+    container_name: userservice
+    build:
+      context: ./UserService
+    image: userservice:1.0
+    ports:
+      - "8082:8082"
+    depends_on:
+      - eurekaserver
+      - kafka
+    networks:
+      - microservices-network
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  # ======================
+  # Zookeeper
+  # ======================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - microservices-network
+
+  # ======================
+  # Kafka
+  # ======================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - microservices-network
